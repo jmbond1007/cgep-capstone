@@ -43,3 +43,31 @@ test_wildcard_reintroduced_fails if {
     some msg in msgs
     contains(msg, "GAP-07")
 }
+
+wildcard_elsewhere := {"configuration": {"root_module": {"resources": [
+  {"address": "data.aws_iam_policy_document.lambda_inline", "mode": "data",
+   "type": "aws_iam_policy_document", "name": "lambda_inline",
+   "expressions": {
+     "statement": [
+       {"sid": {"constant_value": "DynamoDBWrite"}, "effect": {"constant_value": "Allow"},
+        "actions": {"constant_value": ["dynamodb:PutItem"]},
+        "resources": {"references": ["aws_dynamodb_table.intake.arn"]}}
+     ]
+   }},
+  {"address": "data.aws_iam_policy_document.some_other_policy", "mode": "data",
+   "type": "aws_iam_policy_document", "name": "some_other_policy",
+   "expressions": {
+     "statement": [
+       {"sid": {"constant_value": "BroadOnPurpose"}, "effect": {"constant_value": "Allow"},
+        "actions": {"constant_value": ["kms:*"]},
+        "resources": {"references": ["*"]}}
+     ]
+   }}
+]}}}
+
+# Proves the scoping decision: a wildcard in a document that is not
+# lambda_inline (e.g. kms.tf, oidc-trust.tf) must not trigger GAP-07,
+# even though lambda_inline itself is clean.
+test_wildcard_elsewhere_ignored if {
+    count(gap07.deny) == 0 with input as wildcard_elsewhere
+}

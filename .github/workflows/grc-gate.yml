@@ -124,4 +124,5 @@ jobs:
           path: |
             evidence-*.tar.gz*
             receipt.json
+            evidence/grc-gate/conftest-results.json
           retention-days: 90

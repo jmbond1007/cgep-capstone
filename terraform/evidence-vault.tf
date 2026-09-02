@@ -44,3 +44,36 @@ resource "aws_s3_bucket_object_lock_configuration" "evidence" {
   # the ordering explicit rather than relying on luck.
   depends_on = [aws_s3_bucket_versioning.evidence]
 }
+
+# GAP-03 pattern applied here too: deny any request to this bucket
+# that isn't over TLS. Not one of the 8 named gaps (this bucket didn't
+# exist in the starter), but the same control applies, and the gate's
+# GAP-03 policy checks every aws_s3_bucket, so it correctly flagged
+# this one as missing.
+data "aws_iam_policy_document" "evidence_tls_only" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.evidence.arn,
+      "${aws_s3_bucket.evidence.arn}/*",
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "evidence_tls_only" {
+  bucket = aws_s3_bucket.evidence.id
+  policy = data.aws_iam_policy_document.evidence_tls_only.json
+}

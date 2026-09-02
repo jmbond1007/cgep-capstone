@@ -35,3 +35,31 @@ resource "aws_s3_bucket_public_access_block" "tf_state" {
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
+
+data "aws_iam_policy_document" "tf_state_tls_only" {
+  statement {
+    sid     = "DenyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      aws_s3_bucket.tf_state.arn,
+      "${aws_s3_bucket.tf_state.arn}/*",
+    ]
+
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
+}
+
+resource "aws_s3_bucket_policy" "tf_state_tls_only" {
+  bucket = aws_s3_bucket.tf_state.id
+  policy = data.aws_iam_policy_document.tf_state_tls_only.json
+}
