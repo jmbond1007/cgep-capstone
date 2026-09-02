@@ -1,80 +1,73 @@
-# cgep-app-starter
+# Acme Health capstone: GRC-governed Patient Intake API
 
-> Patient Intake API for "Acme Health". The deliberately-flawed workload your **CGE-P capstone** wraps with GRC controls.
+This repository is a fork of [GRCEngClub/cgep-app-starter](https://github.com/GRCEngClub/cgep-app-starter), wrapped with a Terraform baseline, a Rego policy suite, a signed GitHub Actions evidence pipeline, and an OSCAL component definition, all built against the HIPAA Security Rule as the declared primary framework. Full reasoning, control coverage, and trade-offs are in [WRITEUP.md](WRITEUP.md).
 
-## What this is
+## Verification steps for graders
 
-A minimal AWS workload: VPC, Lambda, API Gateway, DynamoDB, S3. It ingests patient intake submissions over HTTPS. Think of it as a system you have just inherited from an engineering team and been asked to make audit-defensible.
+1. **Confirm the fork relationship.** This repository shows "forked from GRCEngClub/cgep-app-starter" on its GitHub page, and the starter's original workload (`terraform/main.tf`, `lambda/handler.py`, `test/intake.sh`) is unchanged in shape, only hardened.
 
-This repository ships **non-compliant on purpose**. Your job in the capstone is not to rewrite this app. Your job is to wrap it with the four CGE-P layers (Terraform GRC baseline, Rego policies, GitHub Actions evidence pipeline, OSCAL component) so the same workload becomes audit-defensible against HIPAA, SOC 2, and CMMC L2.
+2. **Confirm both required pull requests.**
+   - [PR #1](https://github.com/jmbond1007/cgep-capstone/pull/1): merged, passed the policy gate, triggered a real apply on merge.
+   - [PR #2](https://github.com/jmbond1007/cgep-capstone/pull/2): intentionally reintroduces GAP-07 (wildcard IAM actions), fails policy-check, and remains open and unmerged by design.
 
-## The deploy gate
-
-If you cannot deploy this starter, you cannot pass the capstone. Real GRC engineers inherit working systems. Step zero is making the system run.
-
+3. **Verify a signed evidence bundle directly.** From the repository root, with the AWS CLI configured against this account:
 ```bash
-git clone https://github.com/GRCEngClub/cgep-app-starter
-cd cgep-app-starter
-
-# Confirm you're authenticated to the right account:
-make creds AWS_PROFILE=<your-sandbox-profile>
-
-make deploy AWS_PROFILE=<your-sandbox-profile>
-make test    AWS_PROFILE=<your-sandbox-profile>
+   ./scripts/verify-evidence.sh 33582393841 --vault acme-health-intake-evidence-7bf64b40
 ```
+   Expected output ends with `CHAIN INTACT`. This checks the SHA-256 hash, the Cosign signature against the public Sigstore log, and Object Lock retention, all independently of anything this repository claims.
 
-> **AWS SSO note:** if your profile is SSO-based, Terraform's AWS provider can fail to read it directly with `failed to find SSO session section`. The Makefile's `eval $(aws configure export-credentials)` pattern handles this. If you're running `terraform` commands by hand, do the same export first.
-
-Expected output of `make test`:
-
-```json
-{
-    "submission_id": "f1e3...",
-    "status": "received"
-}
+4. **Run the policy test suite.**
+```bash
+   conftest verify --policy policies
 ```
+   Expected: 20 tests passing, covering all 7 closed gaps.
 
-When you're done exploring: `make destroy`.
+5. **Validate the OSCAL files.** Requires `compliance-trestle`.
+```bash
+   mkdir -p .trestle-work && cd .trestle-work && trestle init
+   trestle import -f ../oscal/catalogs/hipaa-security-rule.json -o hipaa-security-rule
+   trestle import -f ../oscal/profiles/cge-p-minimum.json -o cge-p-minimum
+   trestle import -f ../oscal/components/acme-health-intake.json -o acme-health-intake
+   trestle validate -t catalog -n hipaa-security-rule
+   trestle validate -t profile -n cge-p-minimum
+   trestle validate -t component-definition -n acme-health-intake
+```
+   Expected: `VALID` for all three.
 
-## What you build on top
+6. **Confirm the live application still works**, if desired.
+```bash
+   make test AWS_PROFILE=<your-profile>
+```
+   Expected: `{"submission_id": "...", "status": "received"}`.
 
-Fork the repo into your own `cgep-capstone` and add:
-
-1. **Layer 1 — GRC baseline (Terraform).** KMS keys, an S3 evidence vault with Object Lock, a CloudTrail trail. Bring this starter's data stores under your CMK.
-2. **Layer 2 — OPA policy suite (Rego).** Five or more policies that catch the named gaps in [GAPS.md](GAPS.md). Each policy maps to at least one control from the framework you choose.
-3. **Layer 3 — GitHub Actions pipeline.** Plan → Conftest gate → apply → Cosign sign → upload to vault.
-4. **Layer 4 — OSCAL component.** A `component-definition.json` describing how your governed system implements its controls.
-
-Full brief: `docs/labs/07_01_capstone_brief.md` in the course content repo.
-
-## Framework mapping is required
-
-Your capstone must declare a primary framework: **HIPAA Security Rule**, **SOC 2 Trust Services Criteria**, or **CMMC Level 2**. Every policy carries at least one control ID from your chosen framework. Your OSCAL component's `control-implementations` reference your framework's catalog.
-
-A starter mapping is in [FRAMEWORKS.md](FRAMEWORKS.md). It is not the only valid mapping. You're expected to defend yours.
-
-## Cost
-
-Roughly $0 if destroyed within an hour. Lambda + API Gateway + DynamoDB + S3 are all pay-per-use, and an empty deployment generates no traffic. CloudTrail (which you add) costs cents.
-
-## Layout
+## Repository layout
 
 ```
-cgep-app-starter/
-├── README.md            # this file
-├── WORKLOAD.md          # what the API does
-├── GAPS.md              # the named flaws your policies must catch
-├── FRAMEWORKS.md        # HIPAA / SOC 2 / CMMC mapping primer
-├── Makefile             # make deploy | test | destroy
+cgep-capstone/
 ├── terraform/
-│   ├── main.tf
-│   ├── variables.tf
-│   ├── outputs.tf
-│   └── lambda/handler.py
-└── test/
-    └── intake.sh
+│   ├── main.tf, variables.tf, outputs.tf, lambda/    (starter's original workload)
+│   ├── kms.tf                  customer-managed key, rotation enabled
+│   ├── hardening.tf            gap-closing overrides (GAP-01, 03, 04, 05, 08)
+│   ├── evidence-vault.tf       Object Lock evidence bucket
+│   ├── cloudtrail.tf           multi-region audit trail
+│   ├── oidc-trust.tf           GitHub OpenID Connect role for the pipeline
+│   └── state-backend.tf        remote state bucket
+├── policies/
+│   ├── gap0{1,2,3,4,5,7,8}_*.rego     one policy per closed gap
+│   └── tests/*_test.rego              passing and failing fixtures
+├── scripts/
+│   ├── policy-gate.sh          runs Conftest across all 7 gap namespaces
+│   ├── capture-evidence.sh     builds the evidence bundle
+│   └── verify-evidence.sh      the check graders run, above
+├── .github/workflows/grc-gate.yml     plan, policy-check, apply-on-merge, sign, upload
+├── oscal/
+│   ├── catalogs/hipaa-security-rule.json    self-authored, no official one exists
+│   ├── profiles/cge-p-minimum.json
+│   └── components/acme-health-intake.json
+├── WRITEUP.md                  design reasoning, control coverage, trade-offs
+└── GAPS.md, FRAMEWORKS.md, WORKLOAD.md    original starter documentation
 ```
 
-## License
+## Attribution
 
-MIT. Fork freely. Submissions remain learners' own work.
+MIT licensed, per the original starter. Forked freely. This submission is my own work.
