@@ -187,17 +187,20 @@ resource "aws_iam_role_policy_attachment" "lambda_basic" {
 # Written as a data document (not jsonencode) so the statement structure is
 # visible in `terraform plan`'s configuration JSON for policy-gate checks.
 data "aws_iam_policy_document" "lambda_inline" {
+  # DEMO: intentionally reintroducing GAP-07 (wildcard actions) to
+  # prove the gate blocks a real regression, not just a hypothetical.
+  # This PR is meant to fail policy-check and never merge.
   statement {
     sid       = "DynamoDBWrite"
     effect    = "Allow"
-    actions   = ["dynamodb:PutItem"]
+    actions   = ["dynamodb:*"]
     resources = [aws_dynamodb_table.intake.arn]
   }
 
   statement {
     sid       = "S3Write"
     effect    = "Allow"
-    actions   = ["s3:PutObject"]
+    actions   = ["s3:*"]
     resources = ["${aws_s3_bucket.uploads.arn}/*"]
   }
 
