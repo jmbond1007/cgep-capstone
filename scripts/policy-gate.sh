@@ -28,7 +28,7 @@ EXIT=0
   echo "["
   FIRST=1
   # Acme Health capstone: one namespace per closed gap (GAPS.md). GAP-06 is
-  # excluded — it has no HIPAA control citation, only SOC 2/CMMC.
+  # excluded, it has no HIPAA control citation, only SOC 2/CMMC.
   for ns in \
     compliance.gap01_s3_kms_aws \
     compliance.gap02_dynamodb_kms_aws \

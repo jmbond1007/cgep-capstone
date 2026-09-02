@@ -1,5 +1,5 @@
 ######################################################################
-# Layer 1 — GRC baseline (Terraform): hardening overrides
+# Layer 1 - GRC baseline (Terraform): hardening overrides
 # Additive resources closing GAP-01, GAP-03, GAP-04 on the starter's
 # existing S3 bucket (aws_s3_bucket.uploads). No edits to main.tf.
 ######################################################################
@@ -113,7 +113,7 @@ resource "aws_cloudwatch_log_group" "apigw" {
 ######################################################################
 # GAP-08 (prerequisite): API Gateway account-level CloudWatch role.
 # Required once per AWS account before any stage's access_log_settings
-# will work — this is an account-wide setting, not per-API.
+# will work. This is an account-wide setting, not per-API.
 ######################################################################
 
 resource "aws_iam_role" "apigw_cloudwatch" {
