@@ -13,6 +13,18 @@ terraform {
     random  = { source = "hashicorp/random", version = "~> 3.6" }
     archive = { source = "hashicorp/archive", version = "~> 2.4" }
   }
+
+  # Remote state so local applies and CI (grc-gate.yml) read and write
+  # the same state file. Bucket created in state-backend.tf, then this
+  # block added and state migrated with terraform init -migrate-state.
+  # Native S3 locking (use_lockfile), no DynamoDB table needed.
+  backend "s3" {
+    bucket       = "acme-health-intake-tfstate-7bf64b40"
+    key          = "acme-health-intake/terraform.tfstate"
+    region       = "us-east-1"
+    encrypt      = true
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

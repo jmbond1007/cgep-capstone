@@ -78,6 +78,16 @@ data "aws_iam_policy_document" "github_actions_permissions" {
     resources = [data.aws_iam_openid_connect_provider.github.arn]
   }
 
+  # Looking up the provider by URL (the data source above) needs the
+  # list action too, not just Get. AWS scopes List to the
+  # oidc-provider/* resource pattern, not a specific provider ARN.
+  statement {
+    sid       = "ListOidcProviders"
+    effect    = "Allow"
+    actions   = ["iam:ListOpenIDConnectProviders"]
+    resources = ["arn:aws:iam::890742589439:oidc-provider/*"]
+  }
+
   statement {
     sid       = "ApiGatewayAccountSettings"
     effect    = "Allow"
