@@ -24,3 +24,11 @@ output "vpc_id" {
 output "private_subnet_ids" {
   value = aws_subnet.private[*].id
 }
+output "evidence_bucket" {
+  value       = aws_s3_bucket.evidence.id
+  description = "S3 bucket (Object Lock) storing signed pipeline evidence."
+}
+output "github_actions_role_arn" {
+  value       = aws_iam_role.github_actions.arn
+  description = "IAM role grc-gate.yml assumes via GitHub OIDC."
+}

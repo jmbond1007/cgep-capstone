@@ -1,0 +1,127 @@
+name: grc-gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  TF_WORKING_DIR: terraform
+
+jobs:
+  grc-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.15.8
+          terraform_wrapper: false
+
+      - name: Install Conftest
+        run: |
+          curl -fsSL https://github.com/open-policy-agent/conftest/releases/download/v0.50.0/conftest_0.50.0_Linux_x86_64.tar.gz \
+            | tar -xz -C /usr/local/bin conftest
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3
+        with:
+          cosign-release: 'v2.2.4'
+
+      - name: plan
+        id: plan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          terraform init -input=false
+          terraform validate
+          terraform plan -out=tfplan -input=false -no-color
+
+      - name: policy-check
+        id: policy-check
+        run: ./scripts/policy-gate.sh --workspace "$TF_WORKING_DIR"
+
+      # Only on a merge to main, and only if plan + policy-check both
+      # succeeded. Adding an `if:` replaces the default "run only on
+      # prior success" behavior entirely, so success() must be explicit.
+      - name: apply-on-merge
+        id: apply
+        if: github.event_name == 'push' && success()
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: terraform apply -input=false -auto-approve tfplan
+
+      # always(): both required PRs (the one that merges, the one the
+      # gate blocks) need signed evidence in the vault, per the brief.
+      - name: sign
+        id: sign
+        if: always()
+        env:
+          RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          BUNDLE_SRC=$(./scripts/capture-evidence.sh --workspace "$TF_WORKING_DIR" --run-id "$RUN_ID" --no-upload)
+          BUNDLE="evidence-${RUN_ID}-${SHA}.tar.gz"
+          cp "$BUNDLE_SRC" "$BUNDLE"
+
+          if command -v sha256sum >/dev/null 2>&1; then SHASUM="sha256sum"
+          else SHASUM="shasum -a 256"; fi
+          $SHASUM "$BUNDLE" | awk '{print $1}' > "${BUNDLE}.sha256"
+
+          cosign sign-blob --yes --bundle "${BUNDLE}.sig.bundle" "$BUNDLE"
+
+          echo "bundle=$BUNDLE" >> "$GITHUB_OUTPUT"
+
+      - name: upload
+        if: always() && steps.sign.outcome == 'success'
+        env:
+          VAULT: ${{ vars.EVIDENCE_VAULT }}
+          RUN_ID: ${{ github.run_id }}
+          SHA: ${{ github.sha }}
+          BUNDLE: ${{ steps.sign.outputs.bundle }}
+          GATE_RESULT: ${{ steps.policy-check.outcome }}
+        run: |
+          set -euo pipefail
+          KEY_PREFIX="runs/${RUN_ID}"
+
+          aws s3 cp "${BUNDLE}"            "s3://${VAULT}/${KEY_PREFIX}/${BUNDLE}"
+          aws s3 cp "${BUNDLE}.sha256"     "s3://${VAULT}/${KEY_PREFIX}/${BUNDLE}.sha256"
+          aws s3 cp "${BUNDLE}.sig.bundle" "s3://${VAULT}/${KEY_PREFIX}/${BUNDLE}.sig.bundle"
+
+          VERSION_ID=$(aws s3api head-object --bucket "${VAULT}" --key "${KEY_PREFIX}/${BUNDLE}" --query VersionId --output text)
+          cat > receipt.json <<RECEIPT_EOF
+          {
+            "run_id":"${RUN_ID}",
+            "vault":"${VAULT}",
+            "bundle_key":"${KEY_PREFIX}/${BUNDLE}",
+            "version_id":"${VERSION_ID}",
+            "sha256":"$(cat ${BUNDLE}.sha256)",
+            "commit":"${SHA}",
+            "gate_result":"${GATE_RESULT}"
+          }
+          RECEIPT_EOF
+          aws s3 cp receipt.json "s3://${VAULT}/${KEY_PREFIX}/receipt.json"
+
+      - name: Upload evidence as workflow artifact
+        if: always() && steps.sign.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: grc-evidence-${{ github.run_id }}
+          path: |
+            evidence-*.tar.gz*
+            receipt.json
+          retention-days: 90
