@@ -1,0 +1,178 @@
+{
+  "component-definition": {
+    "uuid": "fd1345c1-b30c-4d6b-9dd1-542f3d868523",
+    "metadata": {
+      "title": "Acme Health Patient Intake API - GRC-Governed",
+      "last-modified": "2026-09-02T02:32:19.334777+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.2.1",
+      "parties": [
+        {
+          "uuid": "cd9ae2e8-b20d-4bb8-810c-fd485c8529e5",
+          "type": "organization",
+          "name": "Acme Health / CGE-P Capstone"
+        }
+      ]
+    },
+    "components": [
+      {
+        "uuid": "53bd307d-dc88-46e9-b754-b163f626633f",
+        "type": "software",
+        "title": "Acme Health Patient Intake API",
+        "description": "The CGE-P capstone starter's Patient Intake API (VPC, Lambda, API Gateway, DynamoDB, S3), wrapped with a Terraform GRC baseline (customer-managed KMS, Object Lock evidence vault, CloudTrail, gap-closing hardening), an OPA/Rego policy gate, and a signed GitHub Actions evidence pipeline. Closes 7 of the 8 named gaps in GAPS.md against the HIPAA Security Rule (GAP-06 excluded: no HIPAA control citation).",
+        "purpose": "Ingest and store patient intake submissions in an audit-defensible way.",
+        "responsible-roles": [
+          {
+            "role-id": "system-owner",
+            "party-uuids": [
+              "cd9ae2e8-b20d-4bb8-810c-fd485c8529e5"
+            ]
+          }
+        ],
+        "control-implementations": [
+          {
+            "uuid": "ad30f70c-0301-4241-adad-9d9c9b5b9bb4",
+            "source": "../catalogs/hipaa-security-rule.json",
+            "description": "Implementation of the 5 HIPAA Security Rule controls this capstone's Rego policy suite enforces, mapped to the 7 gaps closed in terraform/hardening.tf, kms.tf, and main.tf.",
+            "implemented-requirements": [
+              {
+                "uuid": "9adedfce-cf2d-4d13-8ec8-a754f5a5e06c",
+                "control-id": "hipaa-164-312-a-1",
+                "description": "GAP-07: the intake Lambda's IAM policy is scoped to the exact actions handler.py calls (dynamodb:PutItem, s3:PutObject), not the wildcard dynamodb:*/s3:* the starter shipped with. Enforced by policies/gap07_iam_least_priv_aws.rego.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "data.aws_iam_policy_document.lambda_inline"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-7bf64b40/runs/33582393841/evidence-33582393841-aaad0f071024e2de25f6615d8fe67e56595f9acd.tar.gz",
+                    "text": "Signed pipeline evidence bundle from grc-gate.yml CI run 33582393841 (the merge-triggered apply-on-merge run for PR #1). Verified locally with scripts/verify-evidence.sh: SHA-256 match, Cosign signature valid against the public Sigstore log, Object Lock retention active. Output: CHAIN INTACT."
+                  }
+                ]
+              },
+              {
+                "uuid": "b1655660-0b8b-46a2-99ce-f25454c3a705",
+                "control-id": "hipaa-164-312-a-2-iv",
+                "description": "GAP-01/GAP-02: the S3 uploads bucket and DynamoDB submissions table are both encrypted with a customer-managed KMS key (rotation enabled), not AWS's default AWS-owned key. Enforced by policies/gap01_s3_kms_aws.rego and policies/gap02_dynamodb_kms_aws.rego.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_server_side_encryption_configuration.uploads"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_dynamodb_table.intake"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_kms_key.phi"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-7bf64b40/runs/33582393841/evidence-33582393841-aaad0f071024e2de25f6615d8fe67e56595f9acd.tar.gz",
+                    "text": "Signed pipeline evidence bundle from grc-gate.yml CI run 33582393841 (the merge-triggered apply-on-merge run for PR #1). Verified locally with scripts/verify-evidence.sh: SHA-256 match, Cosign signature valid against the public Sigstore log, Object Lock retention active. Output: CHAIN INTACT."
+                  }
+                ]
+              },
+              {
+                "uuid": "efe4fd4f-3dab-44c0-827a-88ce1bf28222",
+                "control-id": "hipaa-164-312-b",
+                "description": "GAP-08: API Gateway access logging is enabled, writing to a dedicated CloudWatch log group. CloudTrail additionally provides account-wide management-event audit logging. Enforced by policies/gap08_apigw_logging_aws.rego.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_apigatewayv2_stage.default"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_cloudtrail.main"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-7bf64b40/runs/33582393841/evidence-33582393841-aaad0f071024e2de25f6615d8fe67e56595f9acd.tar.gz",
+                    "text": "Signed pipeline evidence bundle from grc-gate.yml CI run 33582393841 (the merge-triggered apply-on-merge run for PR #1). Verified locally with scripts/verify-evidence.sh: SHA-256 match, Cosign signature valid against the public Sigstore log, Object Lock retention active. Output: CHAIN INTACT."
+                  }
+                ]
+              },
+              {
+                "uuid": "2569379c-a42e-4f41-98d6-2336261f10eb",
+                "control-id": "hipaa-164-312-e-1",
+                "description": "GAP-03: the S3 uploads bucket denies any request not made over TLS. GAP-05: the intake Lambda runs inside the starter's private subnets, reaching S3 and DynamoDB via VPC Gateway Endpoints so PHI traffic never traverses the public internet. Enforced by policies/gap03_s3_tls_aws.rego and policies/gap05_lambda_vpc_aws.rego.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_policy.uploads_tls_only"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_lambda_function.intake"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_vpc_endpoint.s3"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_vpc_endpoint.dynamodb"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-7bf64b40/runs/33582393841/evidence-33582393841-aaad0f071024e2de25f6615d8fe67e56595f9acd.tar.gz",
+                    "text": "Signed pipeline evidence bundle from grc-gate.yml CI run 33582393841 (the merge-triggered apply-on-merge run for PR #1). Verified locally with scripts/verify-evidence.sh: SHA-256 match, Cosign signature valid against the public Sigstore log, Object Lock retention active. Output: CHAIN INTACT."
+                  }
+                ]
+              },
+              {
+                "uuid": "c36425f3-ab1d-4ca2-a756-ffd7f1d23a96",
+                "control-id": "hipaa-164-308-a-7",
+                "description": "GAP-04: versioning is enabled on the S3 uploads bucket, so PHI overwrites are recoverable rather than destructive, satisfying the Data Backup Plan implementation specification. Enforced by policies/gap04_s3_versioning_aws.rego.",
+                "props": [
+                  {
+                    "name": "implementation-status",
+                    "value": "implemented"
+                  },
+                  {
+                    "name": "terraform-resource",
+                    "value": "aws_s3_bucket_versioning.uploads"
+                  }
+                ],
+                "links": [
+                  {
+                    "rel": "evidence",
+                    "href": "s3://acme-health-intake-evidence-7bf64b40/runs/33582393841/evidence-33582393841-aaad0f071024e2de25f6615d8fe67e56595f9acd.tar.gz",
+                    "text": "Signed pipeline evidence bundle from grc-gate.yml CI run 33582393841 (the merge-triggered apply-on-merge run for PR #1). Verified locally with scripts/verify-evidence.sh: SHA-256 match, Cosign signature valid against the public Sigstore log, Object Lock retention active. Output: CHAIN INTACT."
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

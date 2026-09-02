@@ -1,0 +1,106 @@
+{
+  "catalog": {
+    "uuid": "20ef65aa-c5d8-4e3c-990c-f5261fe5284b",
+    "metadata": {
+      "title": "HIPAA Security Rule - Acme Health Capstone Control Set",
+      "last-modified": "2026-09-02T02:29:32.142080+00:00",
+      "version": "1.0.0",
+      "oscal-version": "1.2.1",
+      "remarks": "Self-authored catalog. No official public OSCAL catalog for the HIPAA Security Rule exists (unlike NIST 800-53, which publishes one at usnistgov/oscal-content). This catalog contains only the 5 controls this capstone's Rego policies actually cite, sourced from 45 CFR Part 164 Subpart C (eCFR, accessed 2026-09-01).",
+      "parties": [
+        {
+          "uuid": "1172ca36-6ce2-456a-a57b-6571f223028a",
+          "type": "organization",
+          "name": "Acme Health / CGE-P Capstone"
+        }
+      ]
+    },
+    "controls": [
+      {
+        "id": "hipaa-164-312-a-1",
+        "title": "Access Control",
+        "props": [
+          {
+            "name": "label",
+            "value": "164.312(a)(1)"
+          }
+        ],
+        "parts": [
+          {
+            "id": "hipaa-164-312-a-1_smt",
+            "name": "statement",
+            "prose": "Implement technical policies and procedures for electronic information systems that maintain electronic protected health information to allow access only to those persons or software programs that have been granted access rights as specified in Sec. 164.308(a)(4)."
+          }
+        ]
+      },
+      {
+        "id": "hipaa-164-312-a-2-iv",
+        "title": "Encryption and Decryption",
+        "props": [
+          {
+            "name": "label",
+            "value": "164.312(a)(2)(iv)"
+          }
+        ],
+        "parts": [
+          {
+            "id": "hipaa-164-312-a-2-iv_smt",
+            "name": "statement",
+            "prose": "Implement a mechanism to encrypt and decrypt electronic protected health information."
+          }
+        ]
+      },
+      {
+        "id": "hipaa-164-312-b",
+        "title": "Audit Controls",
+        "props": [
+          {
+            "name": "label",
+            "value": "164.312(b)"
+          }
+        ],
+        "parts": [
+          {
+            "id": "hipaa-164-312-b_smt",
+            "name": "statement",
+            "prose": "Implement hardware, software, and/or procedural mechanisms that record and examine activity in information systems that contain or use electronic protected health information."
+          }
+        ]
+      },
+      {
+        "id": "hipaa-164-312-e-1",
+        "title": "Transmission Security",
+        "props": [
+          {
+            "name": "label",
+            "value": "164.312(e)(1)"
+          }
+        ],
+        "parts": [
+          {
+            "id": "hipaa-164-312-e-1_smt",
+            "name": "statement",
+            "prose": "Implement technical security measures to guard against unauthorized access to electronic protected health information that is being transmitted over an electronic communications network."
+          }
+        ]
+      },
+      {
+        "id": "hipaa-164-308-a-7",
+        "title": "Contingency Plan",
+        "props": [
+          {
+            "name": "label",
+            "value": "164.308(a)(7)"
+          }
+        ],
+        "parts": [
+          {
+            "id": "hipaa-164-308-a-7_smt",
+            "name": "statement",
+            "prose": "Establish (and implement as needed) policies and procedures for responding to an emergency or other occurrence (for example, fire, vandalism, system failure, and natural disaster) that damages systems that contain electronic protected health information. Includes the required Data Backup Plan implementation specification (45 CFR 164.308(a)(7)(ii)(A)): establish and implement procedures to create and maintain retrievable exact copies of electronic protected health information."
+          }
+        ]
+      }
+    ]
+  }
+}
